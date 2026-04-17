@@ -1,0 +1,86 @@
+---
+- name: Research Environment Deployment
+  hosts: localhost
+  connection: local
+  vars:
+    comfyui_path: "{{ lookup('env', 'COMFYUI_PATH') }}"
+    github_pat: "{{ lookup('env', 'GITHUB_PAT') }}"
+    python_version: "3.12"
+
+  tasks:
+    - name: Install system dependencies (git, curl, libs for OpenCV)
+      become: yes
+      apt:
+        name: [git, curl, libgl1, libglib2.0-0, ffmpeg]
+        state: present
+        update_cache: yes
+
+    - name: Setup Taskfile repository
+      become: yes
+      shell: "curl -1sLf 'https://dl.cloudsmith.io/public/task/task/setup.deb.sh' | bash"
+      args:
+        creates: "/etc/apt/sources.list.d/task-task.list"
+
+    - name: Install Taskfile package
+      become: yes
+      apt:
+        name: task
+        state: present
+        update_cache: yes
+
+    - name: Install HuggingFace CLI
+      become: yes
+      shell: "curl -LsSf https://hf.co/cli/install.sh | bash"
+      args:
+        creates: "/usr/local/bin/huggingface-cli"
+        
+    - name: Install uv globally
+      pip:
+        name: uv
+        state: present
+
+    - name: Clone private automation scripts
+      git:
+        repo: "https://{{ github_pat }}@github.com/Khar-Ma2/{{ item }}.git"
+        dest: "/workspace/{{ item }}"
+      loop:
+        - "comfyui-autodownload-scripts"
+        - "comfyui-batch-generation-script"
+
+    - name: Create ComfyUI directory (mkdir -p)
+      file:
+        path: "{{ comfyui_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Initialize uv venv inside ComfyUI path
+      command: "uv venv --seed --python {{ python_version }}"
+      args:
+        chdir: "{{ comfyui_path }}"
+        creates: "{{ comfyui_path }}/.venv"
+
+    - name: Install comfy-cli and manager into venv
+      command: "uv pip install comfy-cli comfyui-manager"
+      args:
+        chdir: "{{ comfyui_path }}"
+
+    - name: Install ComfyUI core via comfy-cli
+      command: "uv run comfy --here install --skip-manager"
+      args:
+        chdir: "{{ comfyui_path }}"
+        creates: "{{ comfyui_path }}/main.py"
+
+    - name: Clone ComfyScript into custom_nodes
+      git:
+        repo: "https://github.com/Chaoses-Ib/ComfyScript.git"
+        dest: "{{ comfyui_path }}/custom_nodes/ComfyScript"
+
+    - name: Install ComfyScript in editable mode with extras
+      command: "uv pip install -e ./custom_nodes/ComfyScript[default]"
+      args:
+        chdir: "{{ comfyui_path }}"
+
+    - name: ComfyUI additional dependencies
+      command: "uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124"
+      args:
+        chdir: "{{ comfyui_path }}"
