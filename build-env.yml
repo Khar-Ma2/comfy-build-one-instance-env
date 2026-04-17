@@ -8,10 +8,10 @@
     python_version: "3.12"
 
   tasks:
-    - name: Install system dependencies (git, curl, libs for OpenCV)
+    - name: Install system dependencies (libs for OpenCV)
       become: yes
       apt:
-        name: [git, curl, libgl1, libglib2.0-0, ffmpeg]
+        name: [libgl1, libglib2.0-0, ffmpeg]
         state: present
         update_cache: yes
 
