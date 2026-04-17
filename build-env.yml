@@ -34,7 +34,7 @@
       args:
         creates: "/usr/local/bin/huggingface-cli"
         
-     - name: Clone private automation scripts
+    - name: Clone private automation scripts
       git:
         repo: "https://{{ github_pat }}@github.com/Khar-Ma2/{{ item }}.git"
         dest: "/workspace/{{ item }}"
