@@ -77,9 +77,9 @@
         chdir: "{{ comfyui_path }}" 
 
     - name: Install ComfyUI core via comfy-cli
-      shell: "echo 'y' | uv run comfy --here install --nvidia --skip-manager"
+      shell: "echo 'y' | uv run comfy --workspace=\"{{ data_dir }}\" install --nvidia --skip-manager"
       args:
-        chdir: "{{ data_dir }}" ### root folder hoisting, cause comfy cli creates folder ComfyUI (that already exist) like .here/ComfyUI
+        chdir: "{{ comfyui_path }}" ### root folder hoisting, cause comfy cli creates folder ComfyUI (that already exist) like .here/ComfyUI
         creates: "{{ comfyui_path }}/main.py" 
 
     - name: Clone ComfyScript into custom_nodes
