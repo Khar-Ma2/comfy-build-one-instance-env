@@ -3,15 +3,17 @@
   hosts: localhost
   connection: local
   vars:
-    data_dir: "{{ lookup('env', 'DATA_DIRECTORY')}}"
+    data_dir: "{{ lookup('env', 'DATA_DIRECTORY') | default('/workspace', true) | regex_replace('/$', '') }}"
     github_pat: "{{ lookup('env', 'GITHUB_PAT') }}"
     python_version: "3.12"
+    comfyui_path: "{{ data_dir }}/ComfyUI"
+    venv_path: "{{ data_dir }}/.venv"
 
   tasks:
     - name: Install system dependencies (libs for OpenCV)
       become: yes
       apt:
-        name: [libgl1, libglib2.0-0, ffmpeg]
+        name: [libgl1, libglib2.0-0, ffmpeg, curl, git]
         state: present
         update_cache: yes
 
@@ -26,68 +28,62 @@
       apt:
         name: task
         state: present
-        update_cache: yes
 
     - name: Install HuggingFace CLI
       become: yes
       shell: "curl -LsSf https://hf.co/cli/install.sh | bash"
       args:
-        creates: "/usr/local/bin/huggingface-cli"
-        
+        creates: "/usr/local/bin/hf"
+
     - name: Clone private automation scripts
       git:
         repo: "https://{{ github_pat }}@github.com/Khar-Ma2/{{ item }}.git"
-        dest: "/{{data_dir}}/{{ item }}"
+        dest: "{{ data_dir }}/{{ item }}"
       loop:
         - "comfyui-autodownload-scripts"
         - "comfyui-batch-generation-script"
 
-
-#### COMFY UI tools and enviroment
-    - name: Set ComfyUI path fact
-      set_fact:
-        comfyui_path: "{{ data_dir }}/ComfyUI"
-  
-    - name: Persist COMFYUI_PATH in system environment
-      lineinfile:
+    # --- НАЛАШТУВАННЯ ОТОЧЕННЯ ---
+    - name: Persist environment in .bashrc
+      blockinfile:
         path: ~/.bashrc
-        line: "export COMFYUI_PATH={{ comfyui_path }}"
         create: yes
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - COMFYUI ENV"
+        block: |
+          export COMFYUI_PATH="{{ comfyui_path }}"
+          export VIRTUAL_ENV="{{ venv_path }}"
+          export PATH="$VIRTUAL_ENV/bin:$PATH"
+          export UV_CACHE_DIR="{{ data_dir }}/.cache/uv"
 
-    - name: Create ComfyUI directory (mkdir -p)
-      file:
-        path: "{{ comfyui_path }}"
-        state: directory
-        mode: '0755'
-
-    - name: Initialize uv venv inside ComfyUI path
+    - name: Initialize uv venv at workspace root
       command: "uv venv --seed --python {{ python_version }}"
       args:
-        chdir: "{{ comfyui_path }}"
-        creates: "{{ comfyui_path }}/.venv"
+        chdir: "{{ data_dir }}"
+        creates: "{{ venv_path }}"
 
-    - name: ComfyUI prerequisite dependencies
-      command: "uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124"
-      args:
-        chdir: "{{ comfyui_path }}"
+    # --- БЛОК ІЗ ЛОКАЛЬНИМ VENV ---
+    - name: ComfyUI block with local venv
+      block:
+        - name: Install comfy-cli and manager
+          command: "uv pip install comfy-cli comfyui-manager"
 
-    - name: Install comfy-cli and manager into venv
-      command: "uv pip install comfy-cli comfyui-manager"
-      args:
-        chdir: "{{ comfyui_path }}" 
+        - name: Install ComfyUI core via comfy-cli
+          shell: 'yes | uv run comfy --here install --nvidia --skip-manager'
+          args:
+            chdir: "{{ data_dir }}"
+            creates: "{{ comfyui_path }}/main.py"
 
-    - name: Install ComfyUI core via comfy-cli
-      shell: "echo 'y' | uv run comfy --workspace=\"{{ data_dir }}\" install --nvidia --skip-manager"
-      args:
-        chdir: "{{ comfyui_path }}" ### root folder hoisting, cause comfy cli creates folder ComfyUI (that already exist) like .here/ComfyUI
-        creates: "{{ comfyui_path }}/main.py" 
+        - name: Clone ComfyScript into custom_nodes
+          git:
+            repo: "https://github.com/Chaoses-Ib/ComfyScript.git"
+            dest: "{{ comfyui_path }}/custom_nodes/ComfyScript"
 
-    - name: Clone ComfyScript into custom_nodes
-      git:
-        repo: "https://github.com/Chaoses-Ib/ComfyScript.git"
-        dest: "{{ comfyui_path }}/custom_nodes/ComfyScript"
-
-    - name: Install ComfyScript in editable mode with extras
-      command: "uv pip install -e ./custom_nodes/ComfyScript[default]"
-      args:
-        chdir: "{{ comfyui_path }}"
+        - name: Install ComfyScript in editable mode
+          command: "uv pip install -e ./custom_nodes/ComfyScript[default]"
+          args:
+            chdir: "{{ comfyui_path }}"
+      environment:
+        VIRTUAL_ENV: "{{ venv_path }}"
+        PATH: "{{ venv_path }}/bin:{{ ansible_env.PATH }}"
+        UV_PROJECT_ENVIRONMENT: "{{ venv_path }}"
+        UV_CACHE_DIR: "{{ data_dir }}/.cache/uv"
