@@ -13,7 +13,7 @@
     - name: Install system dependencies (libs for OpenCV)
       become: yes
       apt:
-        name: [libgl1, libglib2.0-0, ffmpeg, curl, git]
+        name: [libgl1, libglib2.0-0, ffmpeg]
         state: present
         update_cache: yes
 
@@ -43,6 +43,9 @@
         - "comfyui-autodownload-scripts"
         - "comfyui-batch-generation-script"
 
+    - name: Install comfy-cli and manager
+      command: "pip install comfy-cli comfyui-manager"
+
     # --- НАЛАШТУВАННЯ ОТОЧЕННЯ ---
     - name: Persist environment in .bashrc
       blockinfile:
@@ -64,9 +67,6 @@
     # --- БЛОК ІЗ ЛОКАЛЬНИМ VENV ---
     - name: ComfyUI block with local venv
       block:
-        - name: Install comfy-cli and manager
-          command: "uv pip install comfy-cli comfyui-manager"
-
         - name: Install ComfyUI core via comfy-cli
           shell: 'yes | uv run comfy --here install --nvidia --skip-manager'
           args:
