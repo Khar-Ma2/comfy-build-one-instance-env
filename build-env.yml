@@ -3,7 +3,7 @@
   hosts: localhost
   connection: local
   vars:
-    data_ dir: "{{ lookup('env', 'DATA_DIRECTORY')}}"
+    data_dir: "{{ lookup('env', 'DATA_DIRECTORY')}}"
     github_pat: "{{ lookup('env', 'GITHUB_PAT') }}"
     python_version: "3.12"
 
@@ -74,13 +74,13 @@
     - name: Install comfy-cli and manager into venv
       command: "uv pip install comfy-cli comfyui-manager"
       args:
-        chdir: "{{ data_dir }}" ### root folder hoisting, cause comfy cli creates folder ComfyUI (that already exist)
+        chdir: "{{ comfyui_path }}" 
 
     - name: Install ComfyUI core via comfy-cli
       shell: "echo 'y' | uv run comfy --here install --nvidia --skip-manager"
       args:
-        chdir: "{{ comfyui_path }}"
-        creates: "{{ comfyui_path }}/main.py"
+        chdir: "{{ data_dir }}" ### root folder hoisting, cause comfy cli creates folder ComfyUI (that already exist) like .here/ComfyUI
+        creates: "{{ comfyui_path }}/main.py" 
 
     - name: Clone ComfyScript into custom_nodes
       git:
