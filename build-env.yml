@@ -60,7 +60,7 @@
         chdir: "{{ comfyui_path }}"
 
     - name: Install ComfyUI core via comfy-cli
-      shell: "echo 'n' | uv run comfy --here install --skip-manager"
+      shell: "echo 'y' | uv run comfy --here install --nvidia --skip-manager"
       args:
         chdir: "{{ comfyui_path }}"
         creates: "{{ comfyui_path }}/main.py"
