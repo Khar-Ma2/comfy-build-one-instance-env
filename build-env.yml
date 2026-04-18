@@ -3,7 +3,7 @@
   hosts: localhost
   connection: local
   vars:
-    comfyui_path: "{{ lookup('env', 'COMFYUI_PATH') }}"
+    data_ dir: "{{ lookup('env', 'DATA_DIRECTORY')}}"
     github_pat: "{{ lookup('env', 'GITHUB_PAT') }}"
     python_version: "3.12"
 
@@ -37,10 +37,22 @@
     - name: Clone private automation scripts
       git:
         repo: "https://{{ github_pat }}@github.com/Khar-Ma2/{{ item }}.git"
-        dest: "/workspace/{{ item }}"
+        dest: "/{{data_dir}}/{{ item }}"
       loop:
         - "comfyui-autodownload-scripts"
         - "comfyui-batch-generation-script"
+
+
+#### COMFY UI tools and enviroment
+    - name: Set ComfyUI path fact
+      set_fact:
+        comfyui_path: "{{ data_dir }}/ComfyUI"
+  
+    - name: Persist COMFYUI_PATH in system environment
+      lineinfile:
+        path: ~/.bashrc
+        line: "export COMFYUI_PATH={{ comfyui_path }}"
+        create: yes
 
     - name: Create ComfyUI directory (mkdir -p)
       file:
@@ -54,10 +66,15 @@
         chdir: "{{ comfyui_path }}"
         creates: "{{ comfyui_path }}/.venv"
 
+    - name: ComfyUI prerequisite dependencies
+      command: "uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124"
+      args:
+        chdir: "{{ comfyui_path }}"
+
     - name: Install comfy-cli and manager into venv
       command: "uv pip install comfy-cli comfyui-manager"
       args:
-        chdir: "{{ comfyui_path }}"
+        chdir: "{{ data_dir }}" ### root folder hoisting, cause comfy cli creates folder ComfyUI (that already exist)
 
     - name: Install ComfyUI core via comfy-cli
       shell: "echo 'y' | uv run comfy --here install --nvidia --skip-manager"
@@ -72,10 +89,5 @@
 
     - name: Install ComfyScript in editable mode with extras
       command: "uv pip install -e ./custom_nodes/ComfyScript[default]"
-      args:
-        chdir: "{{ comfyui_path }}"
-
-    - name: ComfyUI additional dependencies
-      command: "uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124"
       args:
         chdir: "{{ comfyui_path }}"
