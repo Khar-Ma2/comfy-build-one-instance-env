@@ -75,10 +75,8 @@
         - name: Install ComfyUI core via comfy-cli
           shell: ' uv run comfy --here install --nvidia --skip-manager'
           responses:
-            'asn1': 'y'
-            'asn2': 'y'
-            'asn3': 'y'
-          timeout: 120
+            '.*': 'y'
+          timeout: 200
           args:
             chdir: "{{ data_dir }}"
             creates: "{{ comfyui_path }}/main.py"
