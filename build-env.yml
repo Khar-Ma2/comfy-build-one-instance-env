@@ -8,6 +8,11 @@
     python_version: "3.12"
     comfyui_path: "{{ data_dir }}/ComfyUI"
     venv_path: "{{ data_dir }}/.venv"
+  environment:
+    VIRTUAL_ENV: "{{ venv_path }}"
+    PATH: "{{ venv_path }}/bin:{{ ansible_env.PATH }}"
+    UV_PROJECT_ENVIRONMENT: "{{ venv_path }}"
+    UV_CACHE_DIR: "{{ data_dir }}/.cache/uv"
 
   tasks:
     - name: Install system dependencies (libs for OpenCV)
@@ -44,7 +49,7 @@
         - "comfyui-batch-generation-script"
 
     - name: Install comfy-cli and manager
-      command: "pip install comfy-cli comfyui-manager"
+      command: "uv pip install comfy-cli comfyui-manager"
 
     # --- НАЛАШТУВАННЯ ОТОЧЕННЯ ---
     - name: Persist environment in .bashrc
@@ -55,7 +60,7 @@
         block: |
           export COMFYUI_PATH="{{ comfyui_path }}"
           export VIRTUAL_ENV="{{ venv_path }}"
-          export PATH="$VIRTUAL_ENV/bin:$PATH"
+          export PATH="{{ venv_path }}/bin:$PATH"
           export UV_CACHE_DIR="{{ data_dir }}/.cache/uv"
 
     - name: Initialize uv venv at workspace root
@@ -68,7 +73,7 @@
     - name: ComfyUI block with local venv
       block:
         - name: Install ComfyUI core via comfy-cli
-          shell: 'yes | comfy --here install --nvidia --skip-manager'
+          shell: 'echo "y" | uv run comfy --here install --nvidia --skip-manager'
           args:
             chdir: "{{ data_dir }}"
             creates: "{{ comfyui_path }}/main.py"
