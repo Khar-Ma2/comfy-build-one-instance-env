@@ -73,7 +73,7 @@
     - name: ComfyUI block with local venv
       block:
         - name: Install ComfyUI core via comfy-cli
-          shell: 'echo "y" | uv run comfy --here install --nvidia --skip-manager'
+          shell: ' yes | uv run comfy --here install --nvidia --skip-manager'
           args:
             chdir: "{{ data_dir }}"
             creates: "{{ comfyui_path }}/main.py"
